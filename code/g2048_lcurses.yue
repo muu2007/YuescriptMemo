@@ -1,0 +1,64 @@
+-- package.path = '/usr/share/lua/5.1/?.lua;/usr/lib/lua/5.1/?.so;'..package.path -- これではlua5.4で動かないようだ
+import 'curses'
+-- import 'lib.extlib.ffi.curses' -- ffiの場合。足りない関数を補ったがまだまだある
+import 'lib.lume'
+import 'lib.tamale'
+-- import 'lib.inspect'
+math.randomseed(os.time())
+
+class Game
+	@SIZE= 4
+	new: =>
+		@field = [ [0 for _ = 1, @@SIZE] for _ = 1, @@SIZE]
+		@spawn(1024)
+		@spawn(2)
+
+	-- spawn: (n = if math.random(100)<10 then 4 else 2)=>
+	spawn: (n = lume.weightedchoice({[2]: 90, [4]: 10}))=>
+		try -- すべて埋まっているときにrandomchoiceがエラーを返すため
+			{x, y} = [{i, j} for j, row in ipairs(@field) for i, cell in ipairs(row) when cell == 0] |> lume.randomchoice -- 空いてるマスを集めて１つ選ぶ
+			@field[y][x] = n
+
+	move: (direction)=>
+		invert = (ss)-> [ [c for _, c in lume.ripairs s] for s in *ss]
+		transpose = (ss)-> [ [ss[i][j] for i = 1, @@SIZE] for j = 1, @@SIZE]
+		moveLeft = (ss)->
+			recur, a = nil, tamale.var'a' -- matcher自体を再帰関数にするためには前方宣言が必要。
+			recur = tamale.matcher{
+				{[], []}
+				{[0,], partial: true, (c)-> [...recur(lume.slice(c.input, 2)), 0]}
+				{[a, a], partial: true, (c)-> [c.a*2, ...recur(lume.slice(c.input, 3)), 0]}
+				{[a, 0, a], partial: true, (c)-> [c.a*2, ...recur(lume.slice(c.input, 4)), 0, 0]}
+				{[a, 0, 0, a], (c)-> [c.a*2, 0, 0, 0]}
+				{[a,], partial: true, (c)-> [c.a, ...recur(lume.slice(c.input, 2))]} -- lume.concatで{}を扱うとそのままつける？バグがある？
+			}
+			[recur(s) for s in *ss]
+		old, @field = @field, switch direction  -- 動かなくても代入して…
+			when 1 then @field |> moveLeft
+			when 2 then @field |> transpose |> moveLeft |> transpose
+			when 3 then @field |> invert |> moveLeft |> invert
+			when 4 then @field |> transpose |> invert |> moveLeft |> invert |> transpose -- 転置 |> 反転 |> 左詰め |> 反転 |> 転置
+        if not lume.all [@field[j][i] == old[j][i] for j=1,@@SIZE for i=1,@@SIZE] then @spawn() -- …動いていたらspawn
+
+	draw: (screen)=>
+		screen\clear()
+		screen\mvaddstr (j-1)*2,   0, '.     '\rep(@@SIZE+1), curses.A_DIM for j=1,@@SIZE+1
+		_ = [screen\mvaddstr (j-1)*2+1, (i-1)*6, '% 5d '\format(c) for j,row in ipairs @field for i,c in ipairs row when c > 0] -- [bug?] yue 0.20から受け手が必要になった。
+		screen\refresh()
+
+try
+	print "\x1b]2;#{$FILE\sub(1,-5)}\x07" -- set window title
+	stdscr = curses.initscr()
+	stdscr\keypad() -- これでKEY_LEFTなどがつかえる(esc(27)もescape seaquenceとは別につかえる)
+	curses.cbreak()
+	curses.echo(false)
+	curses.nl(false)
+	curses.curs_set(0)
+	game = Game()
+	while game\draw(stdscr)
+		if d = lume.find({curses.KEY_LEFT, curses.KEY_UP, curses.KEY_RIGHT, curses.KEY_DOWN}, stdscr\getch()) then game\move(d)
+	-- curses.endwin()
+catch err
+	curses.endwin()
+	print "Caught an error:\n"..debug.traceback(err, 2)
+	os.exit 2

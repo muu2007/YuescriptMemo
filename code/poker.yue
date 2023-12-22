@@ -1,0 +1,30 @@
+import 'lib.lume'
+-- import 'utf8'
+
+deal = ->
+	Rank, Suit = [i for i=1, 13], {'S', 'C', 'H', 'D'}
+	[{s, r} for r in *Rank for s in *Suit] |> lume.shuffle |> lume.first(5) |>
+		setmetatable({__tostring: => lume.reduce(@, ((a, b)-> a..' '..rawget({S:'♠', C:'♣', H:'♥', D:'♦'}, b[1]) .. rawget({'A','2','3','4','5','6','7','8','9','T','J','Q','K'}, b[2])), '')})
+
+getHand = (cards)->
+	ranks = [r for {_, r} in *cards] |> lume.sort |> lume.reduce(((a, b)-> a .. string.char(b)), '')
+	suits = [s for {s, _}in *cards] |> lume.sort |> lume.reduce(((a, b)-> a .. b))
+
+	is_flush = ->suits\match('(.)%1%1%1%1')
+	is_straight = ->
+		s = lume.sort([r for {_, r}in *cards])
+		'01234' ==  [r-s[1] for r in *s] |> lume.reduce((a,b)->a..b)
+
+	if is_straight() and is_flush() then 'straightflush'
+	else if ranks\match('(.)%1%1%1') then 'fourcards'
+	else if ranks\match('(.)%1%1(.)%2') or ranks\match('(.)%1(.)%2%2') then 'fullhouse'
+	else if is_flush() then 'flush'
+	else if is_straight() then 'straight'
+	else if ranks\match('(.)%1%1') then 'threecards'
+	else if ranks\match('(.)%1.?(.)%2') then 'twopair'
+	else if ranks\match('(.)%1') then 'onepair'
+	else 'nohand'
+
+for _ = 1, 10
+	deck = deal()
+	print deck, getHand(deck)

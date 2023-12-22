@@ -1,0 +1,80 @@
+assert(os.setlocale(''))
+import 'curses'
+import 'lib.lume'
+import 'lib.tamale'
+-- import 'lib.inspect'
+-- pp curses
+
+class Game
+	@Space, @Wall, @Slot, @Box, @Filled = ' ', '#', '.', '$', '*'
+	new: (@level = 1)=>
+		print "\x1b]2;倉庫番 level: #{@level}\x07" -- set window title
+		@field = [ [string.char(c) for c in *{l\byte(1, -1)}] for l in io.lines "assets/sokoban/level#{level}.sok"] -- vimのsokobanのdataを使う
+		@player = [{j, i} for j, row in ipairs @field for i, c in ipairs row when c == '@'] |> rawget(1)
+		@field[@player[1]][@player[2]] = @@Space
+		@undos = {}
+	-- move: (dx, dy)=>
+	-- 	y1, x1, undo_tmp = @player[1] + dy, @player[2] + dx, {lume.clone(@player), [lume.clone(row) for row in *@field]}  -- undoに入れるものをdeepcopyしておく
+	-- 	local move, nomove -- 前方宣言
+	-- 	box = ->
+	-- 		y2, x2 = y1 + dy, x1 + dx
+	-- 		{@field[y2][x2], f} = {@@Space: {@@Box, move}, @@Slot: {@@Filled, move}, @@Box: {@@Box, nomove}, @@Filled: {@@Filled, nomove}, @@Wall: {@@Wall, nomove}} |> rawget(@field[y2][x2])
+	-- 		f()
+	-- 	move = ->
+	-- 		@player = {y1, x1}
+	-- 		@field[y1][x1] = {@@Space: @@Space, @@Slot: @@Slot, @@Box: @@Space, @@Filled: @@Slot} |> rawget(@field[y1][x1])
+	-- 		@undos[] = undo_tmp
+	-- 	nomove = -> --noop
+	-- 	({@@Box: box, @@Filled: box, @@Slot: move, @@Space: move, @@Wall: nomove} |> rawget(@field[y1][x1]))()
+	move2: (dx, dy)=>
+		y1, x1, y2, x2 = @player[1]+dy, @player[2]+dx, @player[1]+dy*2, @player[2]+dx*2
+		push = (a1, a2)-> -- 引数ないのときただの移動、引数ある時箱を押す
+			@undos[] = {lume.clone(@player), [lume.clone(row) for row in *@field]} -- deepcopyしてundoに登録
+			if a1 and a2 then @field[y1][x1], @field[y2][x2] = a1, a2
+			@player = {y1, x1}
+		tamale.matcher({
+			{[@@Space,], partial: true , -> push()} -- [注意] pushだけだとcaptureが渡ってしまう
+			{[@@Slot,], partial: true , -> push()}
+			{[@@Box, @@Space], -> push(@@Space, @@Box)}
+			{[@@Box, @@Slot], -> push(@@Space, @@Filled)}
+			{[@@Filled, @@Space], -> push(@@Slot, @@Box)}
+			{[@@Filled, @@Slot], -> push(@@Slot, @@Filled)}
+		})({@field[y1][x1], @field[y2][x2]})--{<index>: (n)=> @field[@player[1]+dy*n][@player[2]+dx*n]}) 無限を表すテーブルを渡すとスタックオーバーフロー
+
+	undo: => if #@undos > 0 then {@player, @field} = table.remove(@undos)
+	iswin: => not lume.any [@@Box in row for row in *@field]
+	draw: (screen)=>
+		screen\clear()
+		Charas = {@@Space: '　', @@Wall: '壁', @@Box: '箱', @@Slot: '・', @@Filled: '済'}
+		Colors = {@@Space: 0, @@Wall: 4, @@Box: 2, @@Slot: 2, @@Filled: 3}
+		for y, row in ipairs @field
+			for x, c in ipairs row
+				-- screen\mvaddstr(y, x*2, c, nil, screen\attrset(curses.color_pair(Colors[c]))) -- CodeGolf: 引数の使ってないところで文字色を設定
+				screen\mvaddstr(y, x*2, Charas[c], nil, screen\attrset(curses.color_pair(Colors[c]))) -- CodeGolf: 引数の使ってないところで文字色を設定
+		-- screen\mvaddch(@player[1], @player[2], '@', screen\attrset(curses.color_pair(1)))
+		screen\mvaddstr(@player[1], @player[2]*2, '人', nil, screen\attrset(curses.color_pair(1)))
+		screen\mvaddstr(#@field+1, 0, "\nLevel:#{@level} _step:#{#@undos}", nil, screen\attrset(curses.A_REVERSE))
+		screen\addstr('\n←↑↓→: Move\n       u: Undo\n     Esc: Exit', nil, screen\attrset(0))
+		screen\refresh()
+
+try
+	stdscr = curses.initscr()
+	stdscr\keypad() -- KEY_LEFTなどを有効化(ESC(27)もescape seaquenceとは別になる)
+	curses.start_color()
+	for i, {f, b} in ipairs {{curses.COLOR_RED, curses.COLOR_BLACK}, {curses.COLOR_CYAN, curses.COLOR_BLACK}, {curses.COLOR_YELLOW, curses.COLOR_BLACK}, {curses.COLOR_YELLOW, curses.COLOR_BLUE}}
+		curses.init_pair(i, f, b)
+	curses.cbreak()
+	curses.echo(false)
+	curses.nl(false)
+	curses.curs_set(0)
+	game = Game(tonumber(arg[1]))
+	while game\draw(stdscr)
+		c = stdscr\getch()
+		if 27 == c or game\iswin() then break
+		elseif 0x75 == c then game\undo()
+		elseif d = rawget({[curses.KEY_LEFT]: {-1, 0}, [curses.KEY_UP]: {0, -1}, [curses.KEY_RIGHT]: {1, 0}, [curses.KEY_DOWN]: {0, 1}}, c) then game\move2(unpack d)
+	-- curses.endwin()
+catch err
+	curses.endwin()
+	print "Caught an error:\n"..debug.traceback(err, 2)
+	os.exit 2

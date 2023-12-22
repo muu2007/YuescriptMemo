@@ -1,0 +1,133 @@
+import 'lume'
+SIZE = 3 -- 9 x 9
+
+
+-- 仮に値を入れで、失敗だったら戻る(backtrack)
+-- 複数解も気にせずに解くもの(正しい問題を解くには問題ない)
+-- 破壊的メソッド(問題を埋める)
+export solve = (ss)->
+	-- ss = [lume.clone(row) for row in *ss] -- deepcopy
+	行 = (y)-> ss[y]
+	列 = (x)-> [row[x] for row in *ss]
+	ブロック = (y, x)->
+		y, x = (y-1)|>idiv(SIZE)*SIZE+1, (x-1)|>idiv(SIZE)*SIZE+1
+		[ss[j][i] for j=y,y+SIZE-1 for i=x,x+SIZE-1]
+	for y=1,SIZE^2
+		for x=1,SIZE^2
+			if ss[y][x] == 0
+				候補 = [i for i=1,SIZE^2]
+				for c in *{...行(y), ...列(x), ...ブロック(y, x)} do lume.remove(候補, c) -- uniqueをつけたらluaで速く、luajitで遅くなった
+				for n in *lume.shuffle(候補) -- 候補をshuffleすると速くなったりならなかったりする。shuffleしなくても解ける
+					ss[y][x] = n -- 仮置き
+					if solve(ss) then break -- 再帰呼出し
+					ss[y][x] = 0
+				if ss[y][x] == 0 then return nil -- 失敗したら戻る(backtrack)
+	ss
+
+-- 候補を上げてユニークなものを残してゆく
+-- 複数解があるものは解けない(問題作成に使う)
+-- 破壊的メソッド(問題を埋める)
+export solve0 = (ss)->
+	recur = (nblanks)->
+		行 = (y)-> ss[y]
+		列 = (x)-> [row[x] for row in *ss]
+		ブロック = (y, x)->
+			y, x = (y-1)|>idiv(SIZE)*SIZE+1, (x-1)|>idiv(SIZE)*SIZE+1
+			[ss[j][i] for j=y,y+SIZE-1 for i=x,x+SIZE-1]
+		for y=1,SIZE^2
+			for x=1,SIZE^2
+				if ss[y][x] == 0
+					候補 = [i for i=1,SIZE^2]
+					for c in *{...行(y), ...列(x), ...ブロック(y, x)} do lume.remove(候補, c)
+					if #候補 == 1 then ss[y][x] = 候補[1]
+		n = lume.reduce([lume.count(row, (c)->c==0) for row in *ss], (a,b)->a+b)
+		-- print n , nblanks
+		if n == nblanks then return nil -- 失敗
+		elseif n == 0 then return ss -- 解き終わり
+		else recur(n) -- 再帰呼び出し
+	recur(SIZE^4)
+
+-- step1: 始めに全てのマスが埋まった答えを作る
+-- 縦・横・ブロックの重なりを調べ、positionsの先頭の位置を埋める
+-- 矛盾があって数字が置けなかったらnilを返し、別の候補を埋める(バックトラック・深さ優先)
+-- step2: 穴を開ける: 現状ランダムに穴を空けている→重み付けにした。
+-- 一つ穴を開けるたびに解けるかチェックしている。
+export generate = (nblanks)->
+	-- ps: positions [{y, x}]
+	recur = (ss, ps)->
+		if #ps == 0 then return ss
+		行 = -> ss[ps[1][1]]
+		列 = -> [row[ps[1][2]] for row in *ss]
+		ブロック = ->
+			y, x = (ps[1][1]-1)|>idiv(SIZE)*SIZE+1, (ps[1][2]-1)|>idiv(SIZE)*SIZE+1
+			[ss[j][i] for j=y,y+SIZE-1 for i=x,x+SIZE-1]
+		候補 = [i for i=1,SIZE^2 when not (i in {...行(), ...列(), ...ブロック()})]
+		if #候補 == 0 then return nil -- 失敗: backtrack
+		for c in *lume.shuffle(候補)
+			ss[ps[1][1]][ps[1][2]] = c
+			if r = recur([lume.clone(row) for row in *ss], lume.slice(ps, 2)) then return r
+	result = recur([ [0 for _=1,SIZE^2] for _=1,SIZE^2], [{j, i} for j=1,SIZE^2 for i=1,SIZE^2]) -- 全て埋まったものを作り…
+	rand = -> lume.weightedchoice({[1]: 2, [2]: 3, [3]: 2, [4]: 4, [5]: 6, [6]: 4, [7]: 2, [8]: 3, [9]: 2}) -- 中央辺りが空白になるように
+	N = 41
+	n = math.min(nblanks, N) -- 最初のN個までは重み付きランダムで穴を開ける。それ以上は『解けるand穴を空けられる位置がない』となることがあるので安全策として確実に終わらせる方法を使う
+	while n > 0
+		x, y = rand(), rand()
+		if result[y][x] != 0
+			ss = [lume.clone(row) for row in *result] -- deepcopy
+			ss[y][x] = 0
+			if solve0(ss) -- 解けるかチェックして
+				result[y][x] = 0
+				n -= 1
+	n, blanks = nblanks-N, [{j, i} for j=1,SIZE^2 for i=1,SIZE^2 when result[j][i] != 0] |> lume.shuffle
+	while n > 0
+		if #blanks == 0 then break
+		y, x = unpack table.remove(blanks)
+		ss = [lume.clone(row) for row in *result] -- deepcopy
+		ss[y][x] = 0
+		if solve0(ss) -- 解けるかチェックして
+			result[y][x] = 0
+			n -= 1
+	result
+
+----------------------------------------
+
+macro to2d = (data, nwidth)->
+	import 'lume'
+	import 'inspect'
+	-- "#{inspect([ [(if 0x20==c then 0 else c-0x30) for _,c in utf8.codes(row\sub(1,nwidth))] for row in *lume.split(data,'\n')])}"
+	"#{inspect([ [(c) for _,c in utf8.codes(row\sub(1,nwidth))] for row in *lume.split(data,'\n')])}"
+
+ss = $to2d[[
+850002400
+720000009
+004000000
+000107002
+305000900
+040000000
+000080070
+017000000
+000036040
+]] |>(=>[ [c-0x30 for c in *row] for row in *@])
+
+
+if package.loaded['busted']
+	import 'inspect'
+	for i=1,10
+		math.randomseed(os.time()+i)
+		time, ss = lume.time generate, 58
+		print time
+		for row in *ss do print inspect row
+		time, ss1 = lume.time solve, [lume.clone(row) for row in *ss] -- deepcopy
+		print time
+		for row in *ss1 do print inspect row
+		time, ss2 = lume.time solve0, [lume.clone(row) for row in *ss] -- deepocpy
+		print time
+		for row in *ss2 do print inspect row
+
+if package.loaded['busted']
+	import 'inspect'
+	print '---------------------'
+	for row in *ss do print inspect row
+	time, ss1 = lume.time solve, [lume.clone(row) for row in *ss] -- deepcopy
+	print time
+	for row in *ss1 do print inspect row
