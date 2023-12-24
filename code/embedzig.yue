@@ -1,0 +1,95 @@
+import 'ffi'
+
+
+macro zig = (code)->
+	import 'md5'
+	dir, fn = 'embed/', md5.sumhexa(code) -- without ext (.zig/.h/.so)
+	with io.open(dir..fn..'.zig', 'w')
+		\write(code)
+		\close()
+	cmd = code\match('^//#(.-)\n') or 'zig build-lib -dynamic -O ReleaseSmall' -- -fstrip -fsingle-threaded'
+	-- os.execute(command or "pushd &>/dev/null #{dir} && #{cmd} #{fn}.zig -femit-h -target x86_64-windows-gnu && popd &>/dev/null")
+	os.execute(command or "pushd &>/dev/null #{dir} && #{cmd} #{fn}.zig -femit-h && popd &>/dev/null")
+	_h = io.open(dir..fn..'.h')\read('*a')\gsub('#include "zig.h"\n', '')\gsub('zig_extern ', '')--\gsub('\n','')
+	"rawget({ffi.cdef\'#{_h}\', ffi.load\'#{dir}lib#{fn}.so\'}, 2)"
+
+
+fib = $zig[[
+export fn fib(n: i32) i32 {
+    if (n == 0 or n == 1) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+]]
+
+
+print fib.fib(10)
+print 250 + 10
+print 250 |>$zig[[export fn u8addwrap(a: u8, b:u8) u8 {return a +% b;}]].u8addwrap 10
+print 250 |>$zig[[export fn u8addsatu(a: u8, b:u8) u8 {return a +| b;}]].u8addsatu 10
+
+brighten = $zig[[
+// cite: https://zenn.dev/kounoike/articles/20230120-zig-imgprocessing-simd
+export fn brightenSIMD(image: [*]u8, len: usize) void {
+    var idx: usize = 0;
+    const add_vec = @Vector(4, u8){ 10, 10, 10, 0 };
+    while (idx < len) : (idx += 4) {
+        const image_vec = @Vector(4, u8){ image[idx + 0], image[idx + 1], image[idx + 2], image[idx + 3] };
+        const result_vec = image_vec +| add_vec;
+        image[idx + 0] = result_vec[0];
+        image[idx + 1] = result_vec[1];
+        image[idx + 2] = result_vec[2];
+        image[idx + 3] = result_vec[3]; // ここを消すと遅くなる
+    }
+}
+]]
+
+image = string.char unpack [math.random(0, 255) for _ = 1, 1200]
+print string.byte image, 1, 10
+for _=1,9
+	brighten.brightenSIMD(ffi.cast('uint8_t *', image), #image)
+	print string.byte image, 1, 10
+
+
+qoi = $zig[[
+//# cp -f ../qoi.h qoi.h && zig build-lib -dynamic -O ReleaseSmall -I. -I/usr/include
+const qoi = @cImport({@cDefine("QOI_IMPLEMENTATION", ""); @cInclude("qoi.h");});
+export fn read(filename: [*:0]const u8, pwidth: *u32, pheight: *u32) ?*anyopaque {
+	var desc = qoi.qoi_desc{.width = 0, .height = 0, .channels = 0, .colorspace = 0};
+	var result = qoi.qoi_read(filename, &desc, 4);
+	pwidth.* = desc.width;
+	pheight.* = desc.height;
+	return result;
+	//defer free(data);
+}
+]]
+
+pwidth, pheight = ffi.new('uint32_t[1]'), ffi.new('uint32_t[1]')
+pixels = qoi.read('dice.qoi', pwidth, pheight)
+-- gr.newImage(love.image.newImageData(pwidth[0], pheight[0], 'rgba8', ffi.string(pixels, pwidth[0] * pheight[0] * 4)))
+print pwidth[0], pheight[0]
+-- ffi.cdef[[
+-- typedef struct {
+--   unsigned int width;
+--   unsigned int height;
+--   unsigned char channels;
+--   unsigned char colorspace;
+-- } qoi_desc;
+-- int qoi_write(const char *filename, const void *data, const qoi_desc *desc);
+-- void *qoi_read(const char *filename, qoi_desc *desc, int channels);
+-- void *qoi_encode(const void *data, const qoi_desc *desc, int *out_len);
+-- void *qoi_decode(const void *data, int size, qoi_desc *desc, int channels);
+-- ]]
+-- qoi = ffi.load('embed/libqoi.so')
+--
+-- -- buf = 'a'\rep(16+800*600*4)
+-- desc = ffi.new('qoi_desc', {})
+-- image = qoi.qoi_read('dice.qoi', desc, 0)
+
+-- print buf\sub()
+-- dice.png 800x600 rgba channel
+
+
+-- nimでもできる？
+-- nim c --noMain --noLinking --header:fib.h fib.nim
+
+-- rustでもできそうだがcbingdenとプロジェクトフォルダが必要っぽい。

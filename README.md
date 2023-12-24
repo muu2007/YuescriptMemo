@@ -141,3 +141,18 @@ print fib[42]
 
 - [Love2Dの細かい部分](doc/Love2Dの細かい部分.md)
 - [各プラットフォーム向けのdistribute](doc/distribute.md)
+
+---
+
+![2048](img/game2048.gif)
+[2048](https://github.com/muu2007/game2048/) [▶Play](https://muu2007.github.io/game2048/)
+
+---
+
+![freecell](img/freecell.jpg)
+[freecell](https://github.com/muu2007/freecell/) [▶Play](https://muu2007.github.io/freecell/)
+
+---
+
+![スイカゲーム](img/suikagame.jpg)
+[suikagame](https://github.com/muu2007/suikagame/) [▶Play](https://muu2007.github.io/suikagame/)

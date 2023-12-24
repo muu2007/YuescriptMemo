@@ -35,6 +35,10 @@
 
 ## HTML5(Web)
 
+1. `npx love.js #{PROJECTNAME}.love html\_#{PROJECTNAME} -c -t \"#{PROJECTNAME..' -v '..VERSION}\"`
+2. webサーバー起動`python -m http.server 8000`
+3. ブラウザでlocalhost:8000を開く
+
 - luajitではない
 - シンプルなものでも 60Hz 出ないことに注意
 - osは'Web'と設定される
@@ -55,8 +59,17 @@
 - Clickなど操作するまで音はならない。初めて操作したときにそれまでのものがまとめて鳴る
 - 文字列リテラルの中の`u{xxxx}`や`\xXX`が理解されずそのままの文字になる。半角カナも128~256の間にはならず。これらをweb版で使うなら`format%s`でやるしか無い
 - 拡大描画の方法が違うのかぼける
+- [bug] fullscreenにした時、座標が狂う
+
+### Github Pagesで公開
+
+1. html_PROJECTNAMEフォルダで`git init`して、全ファイルをcommitしてgithubにpush
+2. githubのページのsettingからpagesnを選びソースをmasterにしsaveを押す。
+   `https://ユーザー名.github.io/PROJECTNAME/`に公開される
+
+AndroidのFireFoxBetaで見てもstritebatchのタイル表示が汚くならない
 
 ## その他
 
-- upxに暗号化の機能はないようだ。
-- minfyしてluajit -bすることはできるが、完璧ではないし、バイトコードは32bitsと64bitsで互換性がない
+- upxに暗号化の機能はない。
+- minfyしてluajit -bすることはできるが、完璧ではないし、バイトコードはluajitの32bitsと64bitsで互換性がない
