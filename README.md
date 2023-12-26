@@ -92,6 +92,7 @@
 - backcall
 - ~~弱参照~~
 - debugライブラリ
+- 強化学習(ncnnやtensorflow liteなど)ffiで
 
 ## あったらいい機能
 
@@ -134,7 +135,7 @@ print fib[42]
 - [ターミナル版2048](code/g2048_lcurses.yue) luajit用
 - [ターミナル版倉庫番](code/sokoban_lcurses.yue) luajit用
 - glob luafilesystem版、love.filesyste版
-- zigマクロ
+- [zigマクロ](code/embedzig.yue)
 - [luacheckrc](code/.luacheckrc)
 
 ## Love2d

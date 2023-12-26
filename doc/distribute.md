@@ -59,7 +59,8 @@
 - Clickなど操作するまで音はならない。初めて操作したときにそれまでのものがまとめて鳴る
 - 文字列リテラルの中の`u{xxxx}`や`\xXX`が理解されずそのままの文字になる。半角カナも128~256の間にはならず。これらをweb版で使うなら`format%s`でやるしか無い
 - 拡大描画の方法が違うのかぼける
-- [bug] fullscreenにした時、座標が狂う
+- [x] fullscreenにした時、座標が狂う
+      → getOS getFullscreenなどで場合分け、getDesktopDimensionsとgetDimensionsでoffsetとscaleを計算すれば直せる
 
 ### Github Pagesで公開
 
