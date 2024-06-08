@@ -1,55 +1,61 @@
-import 'lume' as :keys, :find
-import 'combine' as :combn, :permute -- as {combn: 順列, permute: 組み合わせ}
+import 'lib.lume' as :keys, :find, :trim
+import 'lib.combine' as :combn, :permute -- as {combn: 順列, permute: 組み合わせ}
 
 Operator = {['+']: ((a,b)->a+b), ['-']: ((a,b)->a-b), ['*']: ((a,b)->a*b), ['/']: ((a,b)->a/b),
 	['(+)']: ((a,b)->a+b), ['(-)']: ((a,b)->a-b), ['(*)']: ((a,b)->a*b), ['(/)']: ((a,b)->a/b)} -- 優先順位の高いもの
 
 -- 4つの数字まで対応(combine.permute/combnや式のところの変数を増やせばより多くの数に対応)
 -- ４つ以下のとき配列の末尾がnilなので有効な配列になる
-export solve = (digits)->
-	eval = (digs, ops)->
+export solve = (numbers)->
+	eval = (nums, ops)-> -- 注意: nums, opsはスタックのように使われ変更される
 		calc = (i, func)->
-			digs[i+1] = func(digs[i], digs[i+1])
-			table.remove(digs, i)
+			nums[i+1] = func(nums[i], nums[i+1])
+			table.remove(nums, i)
 			table.remove(ops, i)
-			eval(digs, ops) -- 再帰呼び出し
-		if #ops == 0 then return digs[1]
-		else if i = find([op in {'(*)','(/)'} for op in *ops], true) then calc(i, Operator[ops[i]]) -- findでAかBの最初にある位置を得るため、先にどちらか→true/それ以外→falseに変換しておく
-		else if i = find([op in {'(+)', '(-)'} for op in *ops], true) then calc(i, Operator[ops[i]])
-		else if i = find([op in {'*', '/'} for op in *ops], true) then calc(i, Operator[ops[i]])
-		else if i = find([op in {'+', '-'} for op in *ops], true) then calc(i, Operator[ops[i]])
+			eval(nums, ops) -- 再帰呼び出し
+		if #ops == 0 then return nums[1]
+		else if i := find([op in {'(*)','(/)'} for op in *ops], true) then calc(i, Operator[ops[i]]) -- findでAかBの最初にある位置を得るため、先にどちらか→true/それ以外→falseに変換しておく
+		else if i := find([op in {'(+)', '(-)'} for op in *ops], true) then calc(i, Operator[ops[i]])
+		else if i := find([op in {'*', '/'} for op in *ops], true) then calc(i, Operator[ops[i]])
+		else if i := find([op in {'+', '-'} for op in *ops], true) then calc(i, Operator[ops[i]])
 		--else error()
-	results = {}
-	for n1, n2, n3, n4 in permute(digits) -- 数字を並べ替える
-		for _o1, _o2, _o3 in combn(keys(Operator), #digits-1) -- ８個の演算子から３つを選ぶ
+	-- results = {}
+	for n1, n2, n3, n4 in permute(numbers) -- 数字を並べ替える
+		for _o1, _o2, _o3 in combn(keys(Operator), #numbers-1) -- ８個の演算子から３つを選ぶ
 			for o1, o2, o3 in permute({_o1, _o2, _o3}) -- combn(順列)には並べ替えたものは含まれないのでそれを作る
-				answer = eval({n1, n2, n3, n4}, {o1, o2, o3})
-				if answer == 10 then return {{n1, o1, n2, o2, n3, o3, n4, '=', answer}}--results[] = {n1, o1, n2, o2, n3, o3, n4, '=', ans} -- 解が一つでいいならここから脱出する
-	results
+				if eval({n1, n2, n3, n4}, {o1, o2, o3}) == 10 then return {n1, n2, n3, n4}, {o1, o2, o3} -- results[] = {{n1,n2,n3,n4}, {o1,o2,o3}} -- 解が一つでいいならここから脱出する
+	-- results
 
 
 -- 解ける問題ができるまで作り直す
 export generate = ->
 	while true
 		result = [math.random(0, 9) for _=1,4]
-		if #solve(result) > 0 then return result
+		if solve(result) then return result
+
+
+export tostring = (numbers, operators)->
+	operators = {[0]: '', ...operators, ''}
+	result = ''
+	for i, n in ipairs numbers
+		o = operators[i]
+		parenL = if #operators[i-1] < 3 and #o == 3 then '(' else ''
+		parenR = if #operators[i-1] == 3 and #o < 3 then ')' else ''
+		result ..= parenL .. n .. parenR .. trim(o, '()')
+	result
 
 
 if package.loaded['busted'] ---------------------------------------------------
-	import 'lume' as :time
-	import 'inspect'
+	import 'lib.lume' as :time
+	import 'lib.inspect'
 	for i=1,10
 		math.randomseed(os.time()+i)
 		t, s = time generate
-		print t, inspect s
-		-- for ans in *solve(s)
-		-- 	print inspect ans
-		print inspect solve(s)[1]
+		pp s, '=>', tostring(solve(s)), 'time', t
 
 	-- 難問
-	-- print inspect solve({3, 3, 3, 9})[1]
-	-- print inspect solve({4, 6, 6, 9})[1]
-	-- print inspect solve({3, 4, 7, 8})[1]
-	-- print inspect solve({1, 1, 9, 9})[1]
-	-- print inspect solve({1, 1, 5, 8})[1]
+	pp {3, 3, 3, 9}, '=>', tostring solve {3, 3, 3, 9}
+	pp {3, 4, 7, 8}, '=>', tostring solve {3, 4, 7, 9}
+	pp {1, 1, 9, 9}, '=>', tostring solve {1, 1, 9, 9}
+	pp {1, 1, 5, 8}, '=>', tostring solve {1, 1, 5, 8}
 

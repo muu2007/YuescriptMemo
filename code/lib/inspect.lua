@@ -335,6 +335,7 @@ setmetatable(inspect, {
 })
 
 -- @muu 追加
+-- inspectを読み込まないときにはlume.noopが使われることにした。
 _G.pp = function(...)
   local unpack = unpack or table.unpack
   return print(unpack((function(...)

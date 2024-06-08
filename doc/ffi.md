@@ -1,6 +1,6 @@
 # ffi
 
-luajitの拡張を使うとemscriptenでWeb版には出来ない
+luajitの拡張を使うとlove.jsでWeb版に変換は出来ない
 
 素のままだとヘッダを手書きしなければならない。(#defineで定義してある関数もある)
 ffiexでincludeもできるが、古いのでなかなかそのまま通るものはない
@@ -8,6 +8,7 @@ zigでくるむとヘッダは認識するが薄いラッパを書かなくて�
 
 ---
 
+- `#define`やconst/enumで定義されている値は`Module = {}`としてその中で変数として定義する。`return Module`する
 - ffi.loadにファイル名を書くと/usr/libから
   相対パスを書くとそれをリンクする
 - ffi.cdefするとffi.Cの後に関数が生えてる
@@ -15,6 +16,7 @@ zigでくるむとヘッダは認識するが薄いラッパを書かなくて�
 - 引数と戻り地は大抵そのまま出来ちゃうが変換が必要なものも。
   整数も 53bit までならそのまま。
   C文字列はffi.string()を使って変換
+  すでにあるデータの参照は`ffi.new('type[1]', initialData)`で作る
 - luaの関数をC側に渡すことはできるが、loveの関数を渡してImageなどのobjectを作っても、lua側に戻した時cdataとなって、userdataにならずに使えない。
   よってffiとluaの境界は単純にCの関数を使ってすぐにluaに戻るようになると思う。
   戻せるものはmallocで確保したメモリならImageData→Imageとできた。

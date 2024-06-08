@@ -8,24 +8,24 @@ utf8 は互換ライブラリを使う
 
 - goto とラベル(luajit にもある)
 - bit32 が入った(luajit に bit ライブラリがある)
-- 環境が変わって c の関数は環境居持てなくなった
+- 環境が変わって c の関数は環境持てなくなった
 - setenv がなくなった
-- utf8 が識別子に使えなくなった( luajit では今でも使えます)
+- utf8 が識別子に使えなくなった(luajit では今でも使えます)
 - 文字列で使えるエスケープシーケンスが増えたり、パターンに%g が入ったり
-- module 削除(古すぎてよくわからないが luajit でも大丈夫)
+- module 削除(古すぎてよくわからないがluajitではあってもなくても大丈夫)
 
 ## lua5.3 は
 
 - 整数の導入(整数除算も)、math.tointeger()やmath.type()が追加
   文字列化で1→1.0となる
 - bit32 は演算子になった(operator overload も)
-- utf8 ライブラリ(luajit では外部ライブラリを導入)
+- utf8 ライブラリ(luajit では外部ライブラリを導入すればよい)
 - math ライブラリ整理
   math.ult(unsigned lesser thanの略？)
 
 ## lua5.4 は
 
-- const close(yueで実装されました)
+- const/closeアトリビュート(yueで実装されました)
 - 整数の自動変換やラップアラウンドの動作の変更
 - utf8 サロゲートペアは引数で指定しないとだめになった
 - le と lt からエミュレートしなくなった
@@ -39,8 +39,10 @@ utf8 は互換ライブラリを使う
   ffi.newでdoubleの配列を持つことができる。添字は０始まり。
   64bit整数どうし、doubleの配列の中身どうしであれば計算が早くなる？
   I(複素数接尾辞)もあるがluaでは計算すら出来ない(cの複素数ライブラリに渡すだけのもの？)。yueでパース通らない
+- stringbufferライブラリ
 - printがキャッシュされていっぺんに出力される
 - luaで少し速くしたものがluajitでは遅くなるということもある(luajitでの速度を測るときは`yue --target=5.1 sudoke.yue && luajit sudoke.lua`とする)
+- love2dで半角カタカナの'ｺｺｺｺｺ'が正しく扱えなかった。Lua5.4で動くmacro版では正しく分離できるのでbugだと思う。
 
 ## emscripten-lua は
 

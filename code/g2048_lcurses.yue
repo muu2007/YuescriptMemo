@@ -1,8 +1,8 @@
 -- package.path = '/usr/share/lua/5.1/?.lua;/usr/lib/lua/5.1/?.so;'..package.path -- これではlua5.4で動かないようだ
 import 'curses'
 -- import 'lib.extlib.ffi.curses' -- ffiの場合。足りない関数を補ったがまだまだある
-import 'lib.lume'
-import 'lib.tamale'
+import 'lume'
+import 'tamale'
 -- import 'lib.inspect'
 math.randomseed(os.time())
 
@@ -56,7 +56,7 @@ try
 	curses.curs_set(0)
 	game = Game()
 	while game\draw(stdscr)
-		if d = lume.find({curses.KEY_LEFT, curses.KEY_UP, curses.KEY_RIGHT, curses.KEY_DOWN}, stdscr\getch()) then game\move(d)
+		if d := lume.find({curses.KEY_LEFT, curses.KEY_UP, curses.KEY_RIGHT, curses.KEY_DOWN}, stdscr\getch()) then game\move(d)
 	-- curses.endwin()
 catch err
 	curses.endwin()

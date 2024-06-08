@@ -1,11 +1,11 @@
-import 'lume'
+import 'lib.lume'
 SIZE = 3 -- 9 x 9
 
 
 -- 仮に値を入れで、失敗だったら戻る(backtrack)
 -- 複数解も気にせずに解くもの(正しい問題を解くには問題ない)
 -- 破壊的メソッド(問題を埋める)
-export solve = (ss)->
+export solve0 = (ss)->
 	-- ss = [lume.clone(row) for row in *ss] -- deepcopy
 	行 = (y)-> ss[y]
 	列 = (x)-> [row[x] for row in *ss]
@@ -19,7 +19,7 @@ export solve = (ss)->
 				for c in *{...行(y), ...列(x), ...ブロック(y, x)} do lume.remove(候補, c) -- uniqueをつけたらluaで速く、luajitで遅くなった
 				for n in *lume.shuffle(候補) -- 候補をshuffleすると速くなったりならなかったりする。shuffleしなくても解ける
 					ss[y][x] = n -- 仮置き
-					if solve(ss) then break -- 再帰呼出し
+					if solve0(ss) then break -- 再帰呼出し
 					ss[y][x] = 0
 				if ss[y][x] == 0 then return nil -- 失敗したら戻る(backtrack)
 	ss
@@ -27,7 +27,7 @@ export solve = (ss)->
 -- 候補を上げてユニークなものを残してゆく
 -- 複数解があるものは解けない(問題作成に使う)
 -- 破壊的メソッド(問題を埋める)
-export solve0 = (ss)->
+export solve = (ss)->
 	recur = (nblanks)->
 		行 = (y)-> ss[y]
 		列 = (x)-> [row[x] for row in *ss]
@@ -65,7 +65,7 @@ export generate = (nblanks)->
 		if #候補 == 0 then return nil -- 失敗: backtrack
 		for c in *lume.shuffle(候補)
 			ss[ps[1][1]][ps[1][2]] = c
-			if r = recur([lume.clone(row) for row in *ss], lume.slice(ps, 2)) then return r
+			if r := recur([lume.clone(row) for row in *ss], lume.slice(ps, 2)) then return r
 	result = recur([ [0 for _=1,SIZE^2] for _=1,SIZE^2], [{j, i} for j=1,SIZE^2 for i=1,SIZE^2]) -- 全て埋まったものを作り…
 	rand = -> lume.weightedchoice({[1]: 2, [2]: 3, [3]: 2, [4]: 4, [5]: 6, [6]: 4, [7]: 2, [8]: 3, [9]: 2}) -- 中央辺りが空白になるように
 	N = 41
@@ -75,7 +75,7 @@ export generate = (nblanks)->
 		if result[y][x] != 0
 			ss = [lume.clone(row) for row in *result] -- deepcopy
 			ss[y][x] = 0
-			if solve0(ss) -- 解けるかチェックして
+			if solve(ss) -- 解けるかチェックして
 				result[y][x] = 0
 				n -= 1
 	n, blanks = nblanks-N, [{j, i} for j=1,SIZE^2 for i=1,SIZE^2 when result[j][i] != 0] |> lume.shuffle
@@ -84,16 +84,16 @@ export generate = (nblanks)->
 		y, x = unpack table.remove(blanks)
 		ss = [lume.clone(row) for row in *result] -- deepcopy
 		ss[y][x] = 0
-		if solve0(ss) -- 解けるかチェックして
+		if solve(ss) -- 解けるかチェックして
 			result[y][x] = 0
 			n -= 1
 	result
 
-----------------------------------------
+---------------------------------------- `busted 数独.lua`で実行
 
 macro to2d = (data, nwidth)->
-	import 'lume'
-	import 'inspect'
+	import 'lib.lume'
+	import 'lib.inspect'
 	-- "#{inspect([ [(if 0x20==c then 0 else c-0x30) for _,c in utf8.codes(row\sub(1,nwidth))] for row in *lume.split(data,'\n')])}"
 	"#{inspect([ [(c) for _,c in utf8.codes(row\sub(1,nwidth))] for row in *lume.split(data,'\n')])}"
 
@@ -111,21 +111,21 @@ ss = $to2d[[
 
 
 if package.loaded['busted']
-	import 'inspect'
+	import 'lib.inspect'
 	for i=1,10
 		math.randomseed(os.time()+i)
 		time, ss = lume.time generate, 58
 		print time
 		for row in *ss do print inspect row
-		time, ss1 = lume.time solve, [lume.clone(row) for row in *ss] -- deepcopy
+		time, ss1 = lume.time solve0, [lume.clone(row) for row in *ss] -- deepcopy
 		print time
 		for row in *ss1 do print inspect row
-		time, ss2 = lume.time solve0, [lume.clone(row) for row in *ss] -- deepocpy
+		time, ss2 = lume.time solve, [lume.clone(row) for row in *ss] -- deepocpy
 		print time
 		for row in *ss2 do print inspect row
 
 if package.loaded['busted']
-	import 'inspect'
+	import 'lib.inspect'
 	print '---------------------'
 	for row in *ss do print inspect row
 	time, ss1 = lume.time solve, [lume.clone(row) for row in *ss] -- deepcopy
